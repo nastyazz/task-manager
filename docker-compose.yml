@@ -19,11 +19,13 @@ services:
   alembic:
     build:
       context: .
-    entrypoint: [ "alembic" ]
-    command: [ "upgrade", "head" ]
+    entrypoint: ["poetry", "run", "alembic"]
+    command: ["upgrade", "head"]
     depends_on:
       db:
         condition: service_healthy
+
+
     
   redis:
     image: redis:6.2.4
@@ -60,7 +62,7 @@ services:
   app:
     build: .
     ports:
-      - "8000:8000"
+      - "8001:8000"
     depends_on:
       db:
         condition: service_healthy

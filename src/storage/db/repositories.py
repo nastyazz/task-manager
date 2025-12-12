@@ -2,6 +2,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.storage.db.model.models import User, Project, Task, Intergration, Event
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.future import select
+from uuid import UUID
+from datetime import datetime
+import uuid
 
 class TaskRepository:
     def __init__(self, db: AsyncSession):
@@ -97,22 +100,64 @@ class TaskRepository:
         
         await self.db.delete(task)
         await self.db.commit()
-    
-
+        
 class ProjectRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
-    
+
+    async def create_project(self, name: str, owner_id: UUID, description: str | None = None) -> Project:
+        project = Project(
+            id=uuid.uuid4(),
+            name=name,
+            owner_id=owner_id,
+            description=description,
+            created_at=datetime.utcnow()
+        )
+        self.db.add(project)
+        try:
+            await self.db.commit()
+            await self.db.refresh(project)
+            return project
+        except SQLAlchemyError:
+            await self.db.rollback()
+            raise
+
+    async def get_project_by_id(self, project_id: UUID) -> Project | None:
+        try:
+            result = await self.db.execute(select(Project).where(Project.id == project_id))
+            return result.scalars().first()
+        except SQLAlchemyError:
+            raise
+
+    async def update_project(self, project_id: UUID, name: str | None = None, description: str | None = None) -> Project:
+        project = await self.get_project_by_id(project_id)
+        if not project:
+            raise ValueError("Project not found")
+        if name:
+            project.name = name
+        if description:
+            project.description = description
+        await self.db.commit()
+        await self.db.refresh(project)
+        return project
+
+    async def delete_project(self, project_id: UUID) -> None:
+        project = await self.get_project_by_id(project_id)
+        if not project:
+            raise ValueError("Project not found")
+        await self.db.delete(project)
+        await self.db.commit()
+
 
 class UserRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
     
-    async def get_task_by_id(self, task_id: str) -> Task | None:
+    async def get_user_by_id(self, user_id: str) -> User | None:
         try:
-            res = await self.db.execute(select(Task).where(Task.id == task_id))
-            task = res.scalars().first()
-            return task
+            res = await self.db.execute(select(User).where(User.id == user_id))
+            user = res.scalars().first()
+            return user
         except SQLAlchemyError as e:
             raise
         except Exception as e:
@@ -127,6 +172,36 @@ class UserRepository:
             raise
         except Exception as e:
             raise
+    
+    async def create_user(self, username: str, email: str) -> User:
+        user = User(username=username, email=email)
+        self.db.add(user)
+        await self.db.commit()
+        await self.db.refresh(user)
+        return user
+
+    async def update_user(self, user_id: str, username: str | None = None, email: str | None = None) -> User:
+        user = await self.get_user_by_id(user_id)
+        if not user:
+            raise ValueError("User not found")
+        
+        if username:
+            user.username = username
+        if email:
+            user.email = email
+
+        await self.db.commit()
+        await self.db.refresh(user)
+        return user
+
+    async def delete_user(self, user_id: str) -> None:
+        user = await self.get_user_by_id(user_id)
+        if not user:
+            raise ValueError("User not found")
+        
+        await self.db.delete(user)
+        await self.db.commit()
+
 
 class IntegrationRepository:
     def __init__(self, db: AsyncSession):

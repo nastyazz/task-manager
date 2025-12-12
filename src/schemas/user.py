@@ -9,7 +9,8 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    pass
+    username: str
+    email: EmailStr 
 
 
 class UserRead(UserBase):
@@ -18,3 +19,4 @@ class UserRead(UserBase):
 
     class Config:
         from_attributes = True
+
